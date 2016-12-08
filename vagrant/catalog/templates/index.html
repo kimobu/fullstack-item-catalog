@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
 
 {% block content %}
-Hello World
+{% for category in categories %}
+{{ category.name }}
+{% for item in category.items %}
+{{ item.name }}
+{% endfor %}
+{% endfor %}
 {% endblock content %}

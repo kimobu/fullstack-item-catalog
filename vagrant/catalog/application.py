@@ -1,6 +1,21 @@
+from __future__ import print_function  # In python 2.7
+
 from flask import Flask, render_template, request
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from db import User, Category, Item
+
+import sys
+
+
 app = Flask(__name__)
 app.config['DEBUG'] = True
+
+
+engine = create_engine('sqlite:///catalog.db')
+DBSession = sessionmaker(bind=engine)
+session = DBSession()
 
 
 def render(request, template, **kwargs):
@@ -19,8 +34,9 @@ def render(request, template, **kwargs):
 
 
 @app.route('/')
-def hello():
-    return render_template('index.html')
+def index():
+    categories = session.query(Category).all()
+    return render_template('index.html', categories=categories)
 
 
 if __name__ == '__main__':
