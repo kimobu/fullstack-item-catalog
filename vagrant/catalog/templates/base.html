@@ -25,6 +25,16 @@
           <ul class="nav navbar-nav">
             <li class="active"><a href="/">Home</a></li>
           </ul>
+          {% if session.username %}
+          <a href="/logout" class="navbar-right">
+            <button type="button" class="btn btn-default navbar-btn">Sign out</button>
+          </a>
+          <p class="navbar-text navbar-right">Signed in as {{ session.username }}&nbsp;&nbsp;&nbsp;</p>
+          {% else %}
+          <a href="/login" class="navbar-right">
+            <button type="button" class="btn btn-default navbar-btn">Sign in</button>
+          </a>
+          {% endif %}
         </div><!--/.nav-collapse -->
       </div>
     </nav>

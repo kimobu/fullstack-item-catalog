@@ -1,6 +1,28 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% with errors = get_flashed_messages(category_filter=["error"]) %}
+{% if errors %}
+<div class="alert alert-danger" role="alert">
+{{ errors }}
+</div>
+{% endif %}
+{% endwith %}
+{% with successes = get_flashed_messages(category_filter=["success"]) %}
+{% if successes %}
+<div class="alert alert-success" role="alert">
+{{ successes }}
+</div>
+{% endif %}
+{% endwith %}
+{% with messages = get_flashed_messages(category_filter=["message"]) %}
+{% if messages %}
+<div class="alert alert-info" role="alert">
+{{ messages }}
+</div>
+{% endif %}
+{% endwith %}
+
 {% for category in categories %}
 {{ category.name }}
 {% for item in category.items %}
