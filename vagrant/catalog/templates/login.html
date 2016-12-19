@@ -3,16 +3,31 @@
 {% block content %}
 <div class="row">
   <div class="col-xs-12 col-md-6 col-md-offset-3">
-    <div id="signInButton">
-      <span class="g-signin"
-        data-scope="openid email"
-        data-clientid="1062372544490-d2djqm31otqbhhdi376s7j6ibf2uli3t.apps.googleusercontent.com"
-        data-redirecturi="postmessage"
-        data-accesstype="offline"
-        data-cookiepolicy="single_host_origin"
-        data-callback="signInCallback"
-        data-approvalprompt="force">
-      </span>
+    <h3>Login options</h3>
+    <div class="row">
+      <div class="col-xs-6">
+        <div class="g-signin2" data-onsuccess="onSignIn"></div>
+
+        <div id="signInButton">
+          <span class="g-signin"
+            data-scope="openid email"
+            data-clientid="1062372544490-d2djqm31otqbhhdi376s7j6ibf2uli3t.apps.googleusercontent.com"
+            data-redirecturi="postmessage"
+            data-accesstype="offline"
+            data-cookiepolicy="single_host_origin"
+            data-callback="signInCallback"
+            data-approvalprompt="force">
+          </span>
+        </div>
+      </div>
+      <div class="col-xs-6">
+        <div id="facebook_login">
+          <div id="status">
+          </div>
+          <fb:login-button scope="public_profile,email" onlogin="checkLoginState();" login_text="Login with Facebook">
+          </fb:login-button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -21,6 +36,9 @@
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
 <script src="//apis.google.com/js/platform.js?onload=start"> </script>
 <script>
+/*
+* Google signin code
+*/
 function signInCallback(authResult) {
   if (authResult['code']) {
     // Hide the sign-in button now that the user is authorized
@@ -50,4 +68,77 @@ function signInCallback(authResult) {
  }
 }
 </script>
+<script>
+/*
+* Facebook signin code
+*/
+function statusChangeCallback(response) {
+    // The response object is returned with a status field that lets the
+    // app know the current login status of the person.
+    // Full docs on the response object can be found in the documentation
+    // for FB.getLoginStatus().
+    if (response.status === 'connected') {
+      // Logged into your app and Facebook.
+      $.ajax({
+        type: 'POST',
+        url: '/fbconnect?state={{STATE}}',
+        processData: false,
+        data: JSON.stringify(response),
+        contentType: 'application/octet-stream; charset=utf-8',
+        success: function(result) {
+          // Handle or verify the server response if necessary.
+          if (result) {
+            $('#result').html('Login Successful!</br>'+ result + '</br>Redirecting...')
+           setTimeout(function() {
+            window.location.href = "/";
+           }, 4000);
+
+         } else if (authResult['error']) {
+           console.log('There was an error: ' + authResult['error']);
+         } else {
+           $('#result').html('Failed to make a server-side call. Check your configuration and console.');
+         }
+       }
+     });
+    } else if (response.status === 'not_authorized') {
+      // The person is logged into Facebook, but not your app.
+      document.getElementById('status').innerHTML = 'Please log ' +
+        'into this app.';
+    } else {
+      // The person is not logged into Facebook, so we're not sure if
+      // they are logged into this app or not.
+      document.getElementById('status').innerHTML = 'Please log ' +
+        'into Facebook.';
+    }
+  }
+
+  // This function is called when someone finishes with the Login
+  // Button.  See the onlogin handler attached to it in the sample
+  // code below.
+  function checkLoginState() {
+    FB.getLoginStatus(function(response) {
+      statusChangeCallback(response);
+    });
+  }
+
+  window.fbAsyncInit = function() {
+  FB.init({
+    appId      : '629370893914764',
+    cookie     : true,  // enable cookies to allow the server to access
+                        // the session
+    xfbml      : true,  // parse social plugins on this page
+    version    : 'v2.8' // use graph api version 2.8
+  });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+
+</script>
+
 {% endblock javascript %}

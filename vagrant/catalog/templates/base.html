@@ -29,7 +29,10 @@
           <a href="/logout" class="navbar-right">
             <button type="button" class="btn btn-default navbar-btn">Sign out</button>
           </a>
-          <p class="navbar-text navbar-right">Signed in as {{ session.username }}&nbsp;&nbsp;&nbsp;</p>
+          <p class="navbar-text navbar-right">
+            <img src="{{ session.picture }}" class="profile-picture">
+            {{ session.username }}&nbsp;&nbsp;&nbsp;
+          </p>
           {% else %}
           <a href="/login" class="navbar-right">
             <button type="button" class="btn btn-default navbar-btn">Sign in</button>

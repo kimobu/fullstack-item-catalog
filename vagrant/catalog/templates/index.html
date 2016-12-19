@@ -1,32 +1,58 @@
 {% extends 'base.html' %}
 
 {% block content %}
-{% with errors = get_flashed_messages(category_filter=["error"]) %}
-{% if errors %}
-<div class="alert alert-danger" role="alert">
-{{ errors }}
-</div>
-{% endif %}
-{% endwith %}
-{% with successes = get_flashed_messages(category_filter=["success"]) %}
-{% if successes %}
-<div class="alert alert-success" role="alert">
-{{ successes }}
-</div>
-{% endif %}
-{% endwith %}
-{% with messages = get_flashed_messages(category_filter=["message"]) %}
-{% if messages %}
-<div class="alert alert-info" role="alert">
-{{ messages }}
-</div>
-{% endif %}
-{% endwith %}
+<div class="container">
+  <div class="row">
+    {% with errors = get_flashed_messages(category_filter=["error"]) %}
+    {% if errors %}
+    <div class="alert alert-danger" role="alert">
+    {% for error in errors %}
+    {{ error }}<br>
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% with successes = get_flashed_messages(category_filter=["success"]) %}
+    {% if successes %}
+    <div class="alert alert-success" role="alert">
+    {% for success in successes %}
+    {{ success }}
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% with messages = get_flashed_messages(category_filter=["message"]) %}
+    {% if messages %}
+    <div class="alert alert-info" role="alert">
+    {% for message in messages %}
+    {{ message }}
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+  </div>
 
-{% for category in categories %}
-{{ category.name }}
-{% for item in category.items %}
-{{ item.name }}
-{% endfor %}
-{% endfor %}
+  <div class="row">
+    <div class="col-xs-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">Categories</div>
+        <div class="panel-body">
+          {% for category in categories %}
+          {{ category.name }}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="col-xs-8">
+      <div class="panel panel-default">
+        <div class="panel-heading">Latest items</div>
+        <div class="panel-body">
+          {% for item in items %}
+          {{ item.name }}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
