@@ -1,6 +1,7 @@
 from __future__ import print_function  # In python 2.7
 
 from flask import Flask, render_template, request, make_response, flash
+from flask import redirect, url_for
 from flask import session as login_session
 
 
@@ -29,7 +30,9 @@ session = DBSession()
 GOOGLE_CLIENT_ID = json.loads(
     open('google_client_secrets.json', 'r').read())['web']['client_id']
 FACEBOOK_APP_ACCESS_TOKEN = json.loads(
-    open('facebook_client_secrets.json', 'r').read())['web']['app_access_token']
+    open('facebook_client_secrets.json', 'r')
+    .read())['web']['app_access_token']
+
 
 def render(request, template, **kwargs):
     """
@@ -49,7 +52,8 @@ def render(request, template, **kwargs):
 @app.route('/')
 def index():
     categories = session.query(Category).all()
-    return render_template('index.html', categories=categories)
+    items = session.query(Item).order_by(-Item.id).limit(10)
+    return render_template('index.html', categories=categories, items=items)
 
 
 # Create anti-forgery state token
@@ -67,10 +71,12 @@ def logout():
         credentials = json.loads(login_session['credentials'])
         access_token = credentials['access_token']
         if access_token is None:
-            response = make_response(json.dumps('Current user not connected.'), 401)
+            response = make_response(
+                json.dumps('Current user not connected.'), 401)
             response.headers['Content-Type'] = 'application/json'
             return response
-        url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+        url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' \
+            % access_token
         h = httplib2.Http()
         result = h.request(url, 'GET')[0]
         if result['status'] == '200':
@@ -80,11 +86,11 @@ def logout():
             del login_session['email']
             del login_session['picture']
             flash('You have been signed out.', 'success')
-            return render(request, 'index.html')
+            return redirect(url_for('index'))
         else:
             flash("You couldn't be logged out. \
                 Try again later or clear your cache.", 'error')
-            return render(request, 'index.html')
+            return redirect(url_for('index'))
 
     elif login_session.get('facebook_id'):
         """ Facebook docs say to just delete your session identifier """
@@ -93,7 +99,7 @@ def logout():
         del login_session['picture']
         del login_session['facebook_id']
         flash('You have been signed out.', 'success')
-        return render(request, 'index.html')
+        return redirect(url_for('index'))
 
 
 @app.route('/gconnect', methods=['POST'])
@@ -165,7 +171,7 @@ def fbconnect():
     h = httplib2.Http()
     result = h.request(userinfo_url, 'GET')[1]
     data = json.loads(result)
-    userpicture_url = "https://graph.facebook.com/v2.8/%s/picture?fields=url&access_token=%s&redirect=false" % (user_id, access_token)
+    userpicture_url = 'https://graph.facebook.com/v2.8/%s/picture?fields=url&access_token=%s&redirect=false' % (user_id, access_token)
     h = httplib2.Http()
     result = json.loads(h.request(userpicture_url, 'GET')[1])
     picture = result['data']['url']
@@ -179,6 +185,117 @@ def fbconnect():
           % login_session['username'], 'success')
     return render(request, 'index.html')
 
+
+""" Category functions """
+@app.route('/category', methods=["GET"])
+def list_categories():
+    categories = session.query(Category).all()
+    return render(request, 'category_list.html', categories=categories)
+
+
+@app.route('/category/add', methods=["GET", "POST"])
+def new_category():
+    if request.method == "GET":
+        return render(request, 'category.html', category=None)
+    elif request.method == "POST":
+        name = request.form['name']
+        new_category = Category(name=name)
+        session.add(new_category)
+        session.commit()
+        return redirect(url_for('list_categories'))
+
+
+@app.route('/category/<int:category_id>', methods=["GET", "POST"])
+def edit_category(category_id):
+    if request.method == "GET":
+        category = session.query(Category).get(category_id)
+        if login_session.get('username'):
+            return render(request, 'edit_category.html', category=category)
+        else:
+            return render(request, 'category.html', category=category)
+    elif request.method == "POST":
+        category = session.query(Category).get(category_id)
+        name = request.form['name']
+        category.name = name
+        session.commit()
+        flash('Category updated!', 'success')
+        return render(request, 'category.html', category=category)
+
+
+@app.route('/category/delete/<int:category_id>', methods=["GET", "POST"])
+def delete_category(category_id):
+    if request.method == "GET":
+        category = session.query(Category).get(category_id)
+        return render(request, 'delete_category.html', category=category)
+    else:
+        return "Ok"
+
+
+""" Item functions """
+@app.route('/item', methods="GET")
+def list_items():
+    items = session.query(Item).all()
+    return render(request, 'item_list.html', items=items)
+
+
+@app.route('/<int:category_id>/item/add', methods=["GET", "POST"])
+def new_item(category_id):
+    categories = session.query(Category).all()
+    if request.method == "GET":
+        return render(request,
+                      'edit_item.html', item=None,
+                      category_id=category_id, categories=categories)
+    elif request.method == "POST":
+        name = request.form['name']
+        description = request.form['description']
+        category_id = request.form['category_id']
+        new_item = Item(name=name, description=description,
+                        category_id=category_id)
+        session.add(new_item)
+        session.commit()
+        flash('Item added', 'success')
+        return redirect(url_for('edit_item', item_id=new_item.id))
+
+
+@app.route('/item/<int:item_id>', methods=["GET", "POST"])
+def edit_item(item_id):
+    if request.method == "GET":
+        item = session.query(Item).get(item_id)
+        categories = session.query(Category).all()
+        if login_session.get('username'):
+            return render(request, 'edit_item.html',
+                          item=item, categories=categories)
+        else:
+            return render(request, 'item.html',
+                          item=item, categories=categories)
+    elif request.method == "POST":
+        print('here', file=sys.stderr)
+        item = session.query(Item).get(item_id)
+        name = request.form['name']
+        description = request.form['description']
+        category_id = request.form['category_id']
+        item.name = name
+
+        item.description = description
+        item.category_id = category_id
+        session.commit()
+        categories = session.query(Category).all()
+        flash('Item updated', 'success')
+        return render(request, 'item.html', item=item, categories=categories)
+
+
+@app.route('/item/delete/<int:item_id>', methods=["GET", "POST"])
+def delete_item(item_id):
+    item = session.query(Item).get(item_id)
+    if request.method == "GET":
+        item = session.query(Item).get(item_id)
+        return render(request, 'delete_item.html', item=item)
+    else:
+        category_id = item.category_id
+        session.delete(item)
+        session.commit()
+        flash('Item deleted', 'success')
+        return redirect(url_for('edit_category', category_id=category_id))
 
 if __name__ == '__main__':
     app.secret_key = 'b9GMTUhIWaP;`q5p'
