@@ -1,7 +1,7 @@
 from __future__ import print_function  # In python 2.7
 
 from flask import Flask, render_template, request, make_response, flash
-from flask import redirect, url_for
+from flask import redirect, url_for, jsonify
 from flask import session as login_session
 
 
@@ -198,6 +198,8 @@ def new_category():
     if request.method == "GET":
         return render(request, 'category.html', category=None)
     elif request.method == "POST":
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         name = request.form['name']
         new_category = Category(name=name)
         session.add(new_category)
@@ -214,6 +216,8 @@ def edit_category(category_id):
         else:
             return render(request, 'category.html', category=category)
     elif request.method == "POST":
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         category = session.query(Category).get(category_id)
         name = request.form['name']
         category.name = name
@@ -222,12 +226,20 @@ def edit_category(category_id):
         return render(request, 'category.html', category=category)
 
 
+@app.route('/api/category/<int:category_id>', methods=["GET"])
+def json_category(category_id):
+    category = session.query(Category).get(category_id).to_json()
+    return jsonify(category)
+
+
 @app.route('/category/delete/<int:category_id>', methods=["GET", "POST"])
 def delete_category(category_id):
     if request.method == "GET":
         category = session.query(Category).get(category_id)
         return render(request, 'delete_category.html', category=category)
     else:
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         return "Ok"
 
 
@@ -246,6 +258,8 @@ def new_item(category_id):
                       'edit_item.html', item=None,
                       category_id=category_id, categories=categories)
     elif request.method == "POST":
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         name = request.form['name']
         description = request.form['description']
         category_id = request.form['category_id']
@@ -269,7 +283,8 @@ def edit_item(item_id):
             return render(request, 'item.html',
                           item=item, categories=categories)
     elif request.method == "POST":
-        print('here', file=sys.stderr)
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         item = session.query(Item).get(item_id)
         name = request.form['name']
         description = request.form['description']
@@ -284,6 +299,12 @@ def edit_item(item_id):
         return render(request, 'item.html', item=item, categories=categories)
 
 
+@app.route('/api/item/<int:item_id>', methods=["GET"])
+def json_item(item_id):
+    item = session.query(Item).get(item_id).to_json()
+    return jsonify(item)
+
+
 @app.route('/item/delete/<int:item_id>', methods=["GET", "POST"])
 def delete_item(item_id):
     item = session.query(Item).get(item_id)
@@ -291,6 +312,8 @@ def delete_item(item_id):
         item = session.query(Item).get(item_id)
         return render(request, 'delete_item.html', item=item)
     else:
+        if not login_session.get('username'):
+            return redirect(url_for('login'))
         category_id = item.category_id
         session.delete(item)
         session.commit()
