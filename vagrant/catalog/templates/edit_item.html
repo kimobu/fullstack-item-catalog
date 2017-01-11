@@ -26,8 +26,12 @@
         </select>
       </div>
       <div class="text-right">
+        {% if item %}
         <input type="submit" value="Edit" class="btn btn-success">
         <a href="{{ url_for('delete_item', item_id=item.id) }}" class="btn btn-danger">Delete</a>
+        {% else %}
+        <input type="submit" value="Submit" class="btn btn-success">
+        {% endif %}
       </div>
     </form>
   </div>

@@ -3,7 +3,7 @@ from __future__ import print_function  # In python 2.7
 from flask import Flask, render_template, request, make_response, flash
 from flask import redirect, url_for, jsonify
 from flask import session as login_session
-
+from functools import wraps
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -34,19 +34,32 @@ FACEBOOK_APP_ACCESS_TOKEN = json.loads(
     .read())['web']['app_access_token']
 
 
+def login_required(f):
+    """
+    This function checks to see if a user is logged in
+    If they are not logged in, they are redirected to the login page
+    If they are logged in, they are sent to the page requested
+    Other functions will use the @login_required decorator to call this
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not login_session.get('username'):
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def render(request, template, **kwargs):
     """
     This is a wrapper function so that every page can be checked for a login
     Additionally, a caller can specify an HTTP status code that will be
     applied to the response object
     """
-    username = request.cookies.get('name')
-    logged_in = False
     code = kwargs.get('code', '200')
     if code:
-        return render_template(template, logged_in=logged_in, **kwargs), code
+        return render_template(template, **kwargs), code
     else:
-        return render_template(template, logged_in=logged_in, **kwargs)
+        return render_template(template, **kwargs)
 
 
 @app.route('/')
@@ -146,6 +159,15 @@ def gconnect():
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
+    user = session.query(User).filter_by(
+            username=login_session['username'],
+            email=login_session['email'], account_type='google').first()
+    if user is None:
+        user = User(username=login_session['username'],
+                    email=login_session['email'], account_type='google')
+        session.add(user)
+        session.commit()
+    login_session['id'] = user.id
     flash("Successfully logged in with your Google account. Welcome, %s"
           % login_session['username'], 'success')
     return render(request, 'index.html')
@@ -180,7 +202,15 @@ def fbconnect():
     login_session['email'] = data['email']
     login_session['facebook_id'] = user_id
     login_session['picture'] = picture
-
+    user = session.query(User).filter_by(
+            username=login_session['username'],
+            email=login_session['email'], account_type='facebook').first()
+    if user is None:
+        user = User(username=login_session['username'],
+                    email=login_session['email'], account_type='facebook')
+        session.add(user)
+        session.commit()
+    login_session['id'] = user.id
     flash("Successfully logged in with your Facebook account. Welcome, %s"
           % login_session['username'], 'success')
     return render(request, 'index.html')
@@ -189,36 +219,47 @@ def fbconnect():
 """ Category functions """
 @app.route('/category', methods=["GET"])
 def list_categories():
+    """ This function lists all categories in the database """
     categories = session.query(Category).all()
     return render(request, 'category_list.html', categories=categories)
 
 
 @app.route('/category/add', methods=["GET", "POST"])
+@login_required
 def new_category():
+    """ This function allows a logged in user to create a new category """
     if request.method == "GET":
-        return render(request, 'category.html', category=None)
+        return render(request, 'edit_category.html', category=None)
     elif request.method == "POST":
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
         name = request.form['name']
-        new_category = Category(name=name)
+        user_id = login_session['id']
+        user = session.query(User).get(user_id)
+        new_category = Category(name=name, user=user)
         session.add(new_category)
         session.commit()
         return redirect(url_for('list_categories'))
 
 
+@login_required
 @app.route('/category/<int:category_id>', methods=["GET", "POST"])
 def edit_category(category_id):
+    """ This function allows a logged in user to edit a category that they
+        created.
+        If the user did not create the category, they are redirected to
+        the category_list page
+    """
+    category = session.query(Category).get(category_id)
+    user_id = login_session['id']
+    if user_id != category.user_id:
+        flash('You are not allowed to edit this category', 'error')
+        print ('%s'%category.name, file=sys.stderr)
+        return render(request, 'category.html', category=category)
     if request.method == "GET":
-        category = session.query(Category).get(category_id)
         if login_session.get('username'):
             return render(request, 'edit_category.html', category=category)
         else:
             return render(request, 'category.html', category=category)
     elif request.method == "POST":
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
-        category = session.query(Category).get(category_id)
         name = request.form['name']
         category.name = name
         session.commit()
@@ -228,54 +269,77 @@ def edit_category(category_id):
 
 @app.route('/api/category/<int:category_id>', methods=["GET"])
 def json_category(category_id):
+    """ This function returns a category as a JSON object """
     category = session.query(Category).get(category_id).to_json()
     return jsonify(category)
 
 
+@login_required
 @app.route('/category/delete/<int:category_id>', methods=["GET", "POST"])
 def delete_category(category_id):
+    """ This function allows a logged in user to delete a category that they
+        created.
+        If the user did not create the category, they are redirected to
+        the category_list page
+    """
+    category = session.query(Category).get(category_id)
+    user_id = login_session['id']
+    if user_id != category.user_id:
+        categories = session.query(Category).all()
+        flash('You are not allowed to delete this category', 'error')
+        return render(request, 'category_list.html', categories=categories)
     if request.method == "GET":
-        category = session.query(Category).get(category_id)
         return render(request, 'delete_category.html', category=category)
     else:
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
-        return "Ok"
+        session.delete(category)
+        session.commit()
+        categories = session.query(Category).all()
+        flash('Category deleted', 'success')
+        return redirect(url_for('category_list'))
 
 
 """ Item functions """
 @app.route('/item', methods="GET")
 def list_items():
+    """ This function lists all items in the database """
     items = session.query(Item).all()
     return render(request, 'item_list.html', items=items)
 
 
+@login_required
 @app.route('/<int:category_id>/item/add', methods=["GET", "POST"])
 def new_item(category_id):
+    """ This function allows a logged in user to create a new item """
     categories = session.query(Category).all()
     if request.method == "GET":
         return render(request,
                       'edit_item.html', item=None,
                       category_id=category_id, categories=categories)
     elif request.method == "POST":
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
         name = request.form['name']
         description = request.form['description']
         category_id = request.form['category_id']
+        user_id = login_session['id']
+        user = session.query(User).get(user_id)
         new_item = Item(name=name, description=description,
-                        category_id=category_id)
+                        category_id=category_id, user=user)
         session.add(new_item)
         session.commit()
         flash('Item added', 'success')
         return redirect(url_for('edit_item', item_id=new_item.id))
 
 
+@login_required
 @app.route('/item/<int:item_id>', methods=["GET", "POST"])
 def edit_item(item_id):
+    """ This function allows a logged in user to edit an item that they
+        created.
+        If the user did not create the item, they are redirected to
+        the item_list page
+    """
+    item = session.query(Item).get(item_id)
+    categories = session.query(Category).all()
     if request.method == "GET":
-        item = session.query(Item).get(item_id)
-        categories = session.query(Category).all()
         if login_session.get('username'):
             return render(request, 'edit_item.html',
                           item=item, categories=categories)
@@ -283,37 +347,49 @@ def edit_item(item_id):
             return render(request, 'item.html',
                           item=item, categories=categories)
     elif request.method == "POST":
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
-        item = session.query(Item).get(item_id)
+        user_id = login_session['id']
+        if user_id != item.user_id:
+            categories = session.query(Category).all()
+            flash('You are not allowed to edit this item', 'error')
+            return render(request, 'edit_item.html',
+                          item=item, categories=categories)
         name = request.form['name']
         description = request.form['description']
         category_id = request.form['category_id']
         item.name = name
-
         item.description = description
         item.category_id = category_id
         session.commit()
-        categories = session.query(Category).all()
         flash('Item updated', 'success')
         return render(request, 'item.html', item=item, categories=categories)
 
 
-@app.route('/api/item/<int:item_id>', methods=["GET"])
+@app.route('/api/item/<int:item_id>', methods=["GET", ])
 def json_item(item_id):
+    """ This function returns an item as a JSON object """
     item = session.query(Item).get(item_id).to_json()
     return jsonify(item)
 
 
+@login_required
 @app.route('/item/delete/<int:item_id>', methods=["GET", "POST"])
 def delete_item(item_id):
+    """ This function allows a logged in user to delete an item that they
+        created.
+        If the user did not create the item, they are redirected to
+        the item_list page
+    """
+    user_id = login_session['id']
     item = session.query(Item).get(item_id)
+    if user_id != item.user_id:
+        categories = session.query(Category).all()
+        flash('You are not allowed to delete this item', 'error')
+        return render(request, 'item_list.html',
+                      item=item)
     if request.method == "GET":
         item = session.query(Item).get(item_id)
         return render(request, 'delete_item.html', item=item)
     else:
-        if not login_session.get('username'):
-            return redirect(url_for('login'))
         category_id = item.category_id
         session.delete(item)
         session.commit()

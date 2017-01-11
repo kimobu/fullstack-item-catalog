@@ -3,10 +3,10 @@
 {% block content %}
 {% with messages = get_flashed_messages(with_categories=True) %}
 {% if messages %}
-{% for category, message in messages %}
-{% if category == 'success' %}
+{% for mcategory, message in messages %}
+{% if mcategory == 'success' %}
 <div class="alert alert-success">
-{% elif category == 'error' %}
+{% elif mcategory == 'error' %}
 <div class="alert alert-danger">
 {% endif %}
 {{ message }}

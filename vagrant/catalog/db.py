@@ -13,7 +13,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(50))
+    username = Column(String(50))
+    email = Column(String(50))
+    account_type = Column(String(50))
 
 
 class Category(Base):
@@ -21,6 +23,8 @@ class Category(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(50))
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship(User, backref="categories")
 
     def to_json(self):
         return {'id': self.id, 'name': self.name}
@@ -34,6 +38,8 @@ class Item(Base):
     description = Column(Text())
     category_id = Column(Integer, ForeignKey('categories.id'))
     category = relationship(Category, backref="items")
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship(User, backref="items")
 
     def to_json(self):
         return {'id': self.id, 'name': self.name,

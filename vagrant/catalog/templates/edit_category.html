@@ -32,8 +32,12 @@
       </div>
       <div class="text-right">
         {% if session.username %}
+        {% if category %}
         <input type="submit" value="Edit" class="btn btn-success">
         <a href="{{ url_for('delete_category', category_id=category.id) }}" class="btn btn-danger">Delete</a>
+        {% else %}
+        <input type="submit" value="Submit" class="btn btn-success">
+        {% endif %}
         {% else %}
         <input type="submit" value="Submit" class="btn btn-success" disabled>
         {% endif %}
@@ -44,9 +48,11 @@
     <h3>Items</h3>
     {% if session.username %}
     <p>
+      {% if category %}
       <a href="{{ url_for('new_item', category_id=category.id) }}">
         <button class="btn btn-success">Add Item</button>
       </a>
+      {% endif %}
     </p>
     {% endif %}
     <ul class="list-group">
