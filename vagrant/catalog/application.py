@@ -295,7 +295,7 @@ def delete_category(category_id):
         session.commit()
         categories = session.query(Category).all()
         flash('Category deleted', 'success')
-        return redirect(url_for('category_list'))
+        return redirect(url_for('list_categories'))
 
 
 """ Item functions """
